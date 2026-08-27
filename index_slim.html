@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Techniek – opdrachten</title>
+<style>
+:root{
+  --navy:#1f4574;
+  --blue:#2e6fce;
+  --bg:#f4f7fb;
+  --line:#d8e3ee;
+  --text:#17283d;
+  --muted:#60738a;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:"Segoe UI",Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+header{
+  background:var(--navy);
+  color:#fff;
+  padding:32px 20px 28px;
+}
+.wrap{max-width:1050px;margin:0 auto}
+.kicker{
+  font-size:14px;
+  font-weight:800;
+  opacity:.9;
+}
+h1{
+  margin:6px 0;
+  font-size:34px;
+}
+.subtitle{
+  font-size:18px;
+  opacity:.94;
+}
+main{padding:32px 18px 60px}
+.intro{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:25px;
+  box-shadow:0 8px 28px rgba(23,40,61,.08);
+  margin-bottom:24px;
+}
+.intro h2{
+  margin:0 0 8px;
+  font-size:27px;
+}
+.intro p{
+  margin:0;
+  font-size:17px;
+  line-height:1.55;
+}
+.status{
+  margin-top:14px;
+  color:var(--muted);
+  font-size:14px;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+}
+.card{
+  display:block;
+  text-decoration:none;
+  color:inherit;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:20px;
+  min-height:145px;
+  box-shadow:0 6px 20px rgba(23,40,61,.06);
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+}
+.card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 26px rgba(23,40,61,.10);
+  border-color:#aac5e3;
+}
+.icon{font-size:30px}
+.card h3{
+  margin:9px 0 6px;
+  font-size:21px;
+}
+.card p{
+  margin:0;
+  color:var(--muted);
+  font-size:16px;
+  line-height:1.45;
+}
+.empty{
+  background:#fff;
+  border:1px dashed #b9c9da;
+  border-radius:16px;
+  padding:24px;
+  color:var(--muted);
+}
+.footer{
+  margin-top:24px;
+  font-size:13px;
+  color:var(--muted);
+}
+.refresh{
+  margin-top:14px;
+  border:0;
+  border-radius:10px;
+  padding:10px 14px;
+  font:inherit;
+  font-weight:700;
+  cursor:pointer;
+  background:#e9eef4;
+  color:#294056;
+}
+@media(max-width:700px){
+  h1{font-size:28px}
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="kicker">TECHNOLOGIE</div>
+    <h1>🛠️ Techniek – opdrachten</h1>
+    <div class="subtitle">Kies een opdracht en ga zelfstandig aan de slag.</div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="intro">
+      <h2>👋 Welkom!</h2>
+      <p>
+        Op deze pagina vind je interactieve techniekopdrachten.
+        Nieuwe opdrachten verschijnen automatisch zodra ze in de map
+        <strong>opdrachten</strong> van deze website worden gezet.
+      </p>
+      <div id="status" class="status">Opdrachten worden geladen…</div>
+      <button id="refresh" class="refresh" type="button">Opdrachten vernieuwen</button>
+    </section>
+
+    <section id="grid" class="grid" aria-live="polite"></section>
+
+    <div class="footer">
+      Deze pagina haalt automatisch de HTML-opdrachten uit de GitHub-map <strong>opdrachten</strong>.
+    </div>
+  </div>
+</main>
+
+<script>
+const GITHUB_OWNER = "FGoksin";
+const GITHUB_REPO = "techniek-opdrachten";
+const GITHUB_BRANCH = "main";
+const OPDRACHTEN_PAD = "opdrachten";
+
+const grid = document.getElementById("grid");
+const statusEl = document.getElementById("status");
+const refreshBtn = document.getElementById("refresh");
+
+function escapeHtml(text){
+  return String(text).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function friendlyTitle(filename){
+  return filename
+    .replace(/\.html?$/i,"")
+    .replace(/[_-]+/g," ")
+    .replace(/\s+/g," ")
+    .trim()
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function chooseIcon(title){
+  const t = title.toLowerCase();
+  if(t.includes("gereedschap")) return "🛠️";
+  if(t.includes("brug") || t.includes("construct")) return "🌉";
+  if(t.includes("elektr") || t.includes("stroom")) return "⚡";
+  if(t.includes("program")) return "💻";
+  if(t.includes("hout") || t.includes("zaag") || t.includes("vijl")) return "🪚";
+  if(t.includes("spijk") || t.includes("schroef")) return "🔨";
+  if(t.includes("ijzer") || t.includes("draad")) return "🔧";
+  return "🧩";
+}
+
+async function loadOpdrachten(){
+  statusEl.textContent = "Opdrachten worden geladen…";
+  grid.innerHTML = "";
+
+  const apiUrl =
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${OPDRACHTEN_PAD}?ref=${GITHUB_BRANCH}`;
+
+  try{
+    const response = await fetch(apiUrl, {
+      headers: { "Accept": "application/vnd.github+json" }
+    });
+
+    if(!response.ok){
+      throw new Error(`GitHub gaf status ${response.status}`);
+    }
+
+    const items = await response.json();
+
+    const htmlFiles = items
+      .filter(item => item.type === "file" && /\.html?$/i.test(item.name))
+      .sort((a,b) => a.name.localeCompare(b.name, "nl"));
+
+    if(htmlFiles.length === 0){
+      grid.innerHTML = `
+        <div class="empty">
+          Er staan nog geen HTML-opdrachten in de map <strong>opdrachten</strong>.
+        </div>`;
+      statusEl.textContent = "Nog geen opdrachten gevonden.";
+      return;
+    }
+
+    htmlFiles.forEach(item => {
+      const title = friendlyTitle(item.name);
+      const icon = chooseIcon(title);
+
+      const card = document.createElement("a");
+      card.className = "card";
+      card.href = item.path;
+      card.innerHTML = `
+        <div class="icon">${icon}</div>
+        <h3>${escapeHtml(title)}</h3>
+        <p>Open deze interactieve techniekopdracht.</p>
+      `;
+      grid.appendChild(card);
+    });
+
+    statusEl.textContent =
+      `${htmlFiles.length} opdracht${htmlFiles.length === 1 ? "" : "en"} gevonden.`;
+  }
+  catch(error){
+    console.error(error);
+    grid.innerHTML = `
+      <div class="empty">
+        <strong>De opdrachten konden niet worden geladen.</strong><br><br>
+        Controleer of de map <strong>opdrachten</strong> bestaat in de GitHub-repository
+        en of deze website internettoegang heeft.
+      </div>`;
+    statusEl.textContent = "Laden mislukt.";
+  }
+}
+
+refreshBtn.addEventListener("click", loadOpdrachten);
+loadOpdrachten();
+</script>
+
+</body>
+</html>
